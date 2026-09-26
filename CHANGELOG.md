@@ -5,6 +5,9 @@ Changes to the action's public behavior are recorded here. Versions follow
 
 ## Unreleased
 
+- Continue auditing independent references after an unreadable action or
+  reusable workflow, while retaining the per-workflow traversal limit.
+
 ## 0.1.1 - 2026-09-26
 
 - Reset the reference traversal limit for each workflow so repositories with

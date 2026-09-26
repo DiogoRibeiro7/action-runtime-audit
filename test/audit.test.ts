@@ -52,6 +52,33 @@ test('fails visibly when referenced metadata cannot be read', async () => {
   assert.match(result.errors[0], /action.yml or action.yaml not found \(or not accessible\)/);
 });
 
+test('continues after unreadable references within a workflow and composite action', async () => {
+  const context = await caller(`jobs:
+  ci:
+    steps:
+      - uses: acme/missing@v1
+      - uses: acme/wrapper@v1
+  reusable:
+    uses: acme/absent/.github/workflows/build.yml@v1
+  later:
+    steps:
+      - uses: acme/current@v2
+`);
+  const files: Record<string, string> = {
+    'acme/wrapper@v1:action.yml': 'runs:\n  using: composite\n  steps:\n    - uses: acme/nested-missing@v1\n    - uses: acme/old@v1\n',
+    'acme/old@v1:action.yml': 'runs:\n  using: node20\n  main: index.js\n',
+    'acme/current@v2:action.yml': 'runs:\n  using: node24\n  main: index.js\n',
+  };
+  const result = await new Auditor(context, new Set(['node20']), async (ref, file) =>
+    files[`${ref.owner}/${ref.repo}@${ref.ref}:${file}`] ?? null).scan();
+  assert.equal(result.errors.length, 3);
+  assert.match(result.errors[0], /acme\/missing@v1: .*not found/);
+  assert.match(result.errors[1], /acme\/wrapper@v1 → acme\/nested-missing@v1: .*not found/);
+  assert.match(result.errors[2], /acme\/absent\/\.github\/workflows\/build.yml@v1: reusable workflow not found/);
+  assert.equal(result.checkedActions, 3);
+  assert.deepEqual(result.findings.map((finding) => finding.action), ['acme/old@v1']);
+});
+
 test('resolves a root-level local action from the checked-out repository', async () => {
   const context = await caller('jobs:\n  ci:\n    steps:\n      - uses: ./\n');
   await writeFile(path.join(context.root!, 'action.yml'), 'runs:\n  using: node24\n  main: dist/index.js\n');
@@ -95,6 +122,16 @@ test('scans large collections of independent workflows without exhausting the tr
   assert.equal(result.checkedActions, 270);
 });
 
+test('retains the traversal limit within a single workflow', async () => {
+  const references = Array.from({ length: 260 }, () => '      - uses: acme/current@v1').join('\n');
+  const context = await caller(`jobs:\n  ci:\n    steps:\n${references}\n`);
+  const result = await new Auditor(context, new Set(['node20']), async () =>
+    'runs:\n  using: node24\n  main: index.js\n').scan();
+  assert.equal(result.checkedActions, 255);
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0], /reference traversal limit exceeded/);
+});
+
 test('fetches the pinned metadata path', async () => {
   const requests: URL[] = [];
   const text = await githubReader(
@@ -111,8 +148,8 @@ test('fetches the pinned metadata path', async () => {
   assert.equal(requests[0].pathname, '/repos/acme/action/contents/nested/action.yml');
 });
 
-test('bundled action writes findings and a summary and fails for a blocked local action', async () => {
-  const context = await caller('jobs:\n  ci:\n    steps:\n      - uses: ./legacy\n');
+test('bundled action reports a blocked runtime after an unreadable local action', async () => {
+  const context = await caller('jobs:\n  ci:\n    steps:\n      - uses: ./missing\n      - uses: ./legacy\n');
   await mkdir(path.join(context.root!, 'legacy'));
   await writeFile(path.join(context.root!, 'legacy/action.yml'), 'runs:\n  using: node20\n  main: dist/index.js\n');
   const output = path.join(context.root!, 'output.txt');
@@ -138,7 +175,7 @@ test('bundled action writes findings and a summary and fails for a blocked local
     chain: ['.github/workflows/ci.yml', './legacy'],
     action: './legacy', runtime: 'node20',
   }]);
-  assert.match(await readFile(summary, 'utf8'), /Found 1 blocked runtimes and 0 scan errors/);
+  assert.match(await readFile(summary, 'utf8'), /Found 1 blocked runtimes and 1 scan errors/);
 });
 
 test('bundled action succeeds and writes empty findings when local runtimes are allowed', async () => {
