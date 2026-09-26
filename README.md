@@ -9,8 +9,8 @@ The action reads metadata; it does not execute the actions it inspects.
 
 ## Usage
 
-After this repository is accessible to the caller, reference a reviewed commit
-SHA (or a published release tag):
+Use a published release tag, or pin the full commit SHA for an immutable
+reference:
 
 ```yaml
 name: Action runtime audit
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: DiogoRibeiro7/action-runtime-audit@<commit-sha>
+      - uses: DiogoRibeiro7/action-runtime-audit@v0.1.0
         with:
           github-token: ${{ github.token }}
 ```
