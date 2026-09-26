@@ -7497,6 +7497,7 @@ var Auditor = class {
     const files = (await (0, import_promises.readdir)(directory)).filter((file) => /\.ya?ml$/.test(file)).sort();
     if (files.length === 0) throw new Error("no workflow files found");
     for (const file of files) {
+      this.traversed = 0;
       const workflow = `.github/workflows/${file}`;
       try {
         const source = await this.read(this.caller, workflow);

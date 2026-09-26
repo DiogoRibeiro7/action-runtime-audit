@@ -162,6 +162,9 @@ export class Auditor {
     const files = (await readdir(directory)).filter((file) => /\.ya?ml$/.test(file)).sort();
     if (files.length === 0) throw new Error('no workflow files found');
     for (const file of files) {
+      // Each workflow is an independent traversal; one file must not consume
+      // the safety budget of every workflow that follows it.
+      this.traversed = 0;
       const workflow = `.github/workflows/${file}`;
       try {
         const source = await this.read(this.caller, workflow);

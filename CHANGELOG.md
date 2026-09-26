@@ -5,6 +5,9 @@ Changes to the action's public behavior are recorded here. Versions follow
 
 ## Unreleased
 
+- Reset the reference traversal limit for each workflow so repositories with
+  many independent workflows can be audited.
+
 ## 0.1.0 - 2026-09-26
 
 - Inspect direct actions, nested composite actions, and reusable workflows at
