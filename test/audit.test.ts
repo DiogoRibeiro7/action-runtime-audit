@@ -84,6 +84,17 @@ test('rejects dynamic refs and stops recursive composite cycles', async () => {
   assert.match(result.errors[0], /recursive action or workflow reference/);
 });
 
+test('scans large collections of independent workflows without exhausting the traversal limit', async () => {
+  const workflow = 'jobs:\n  audit:\n    steps:\n      - uses: acme/current@v1\n';
+  const context = await caller(workflow);
+  await Promise.all(Array.from({ length: 269 }, (_, index) =>
+    writeFile(path.join(context.root!, '.github/workflows', `workflow-${index}.yml`), workflow)));
+  const result = await new Auditor(context, new Set(['node20']), async () =>
+    'runs:\n  using: node24\n  main: dist/index.js\n').scan();
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.checkedActions, 270);
+});
+
 test('fetches the pinned metadata path', async () => {
   const requests: URL[] = [];
   const text = await githubReader(
