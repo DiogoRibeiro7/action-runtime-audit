@@ -1,0 +1,21 @@
+name: Action Runtime Audit
+description: Inspect the Node runtimes of actions referenced by GitHub Actions workflows
+branding:
+  icon: search
+  color: blue
+inputs:
+  github-token:
+    description: Token with Contents read access to referenced repositories
+    required: true
+  blocked-runtimes:
+    description: Comma-separated runs.using values to reject
+    required: false
+    default: node12,node16,node20
+outputs:
+  findings:
+    description: JSON array of blocked action runtime findings
+  checked-actions:
+    description: Number of action references inspected
+runs:
+  using: node24
+  main: dist/index.js
