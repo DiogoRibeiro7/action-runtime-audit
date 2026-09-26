@@ -7362,6 +7362,8 @@ var import_promises2 = require("node:fs/promises");
 var import_promises = require("node:fs/promises");
 var import_node_path = __toESM(require("node:path"), 1);
 var import_yaml = __toESM(require_dist(), 1);
+var TraversalLimitError = class extends Error {
+};
 var object = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
 var entries = (value) => Object.entries(object(value));
 var steps = (value) => Array.isArray(value) ? value.map(object) : [];
@@ -7450,8 +7452,17 @@ var Auditor = class {
   }
   guard(key, stack) {
     if (stack.has(key)) throw new Error(`recursive action or workflow reference: ${key}`);
-    if (++this.traversed > 256 || stack.size >= 16) throw new Error("reference traversal limit exceeded");
+    if (++this.traversed > 256 || stack.size >= 16) throw new TraversalLimitError("reference traversal limit exceeded");
     return /* @__PURE__ */ new Set([...stack, key]);
+  }
+  async inspect(chain, reference, visit) {
+    try {
+      await visit();
+    } catch (error) {
+      if (error instanceof TraversalLimitError) throw error;
+      const detail = error instanceof Error ? error.message : String(error);
+      this.errors.push(`${chain[0]}: ${[...chain.slice(1), reference].join(" \u2192 ")}: ${detail}`);
+    }
   }
   async action(value, context, workflow, chain, stack) {
     const target = this.target(value, context, true);
@@ -7468,7 +7479,10 @@ var Auditor = class {
     }
     if (runtime === "composite") {
       for (const step of steps(object(metadata.runs).steps)) {
-        if (typeof step.uses === "string") await this.action(step.uses, target.context, workflow, trail, next);
+        const reference = step.uses;
+        if (typeof reference === "string") {
+          await this.inspect(trail, reference, () => this.action(reference, target.context, workflow, trail, next));
+        }
       }
     }
   }
@@ -7479,15 +7493,21 @@ var Auditor = class {
     for (const [, rawJob] of entries(data.jobs)) {
       const job = object(rawJob);
       for (const step of steps(job.steps)) {
-        if (typeof step.uses === "string") await this.action(step.uses, context, chain[0], chain, next);
+        const reference = step.uses;
+        if (typeof reference === "string") {
+          await this.inspect(chain, reference, () => this.action(reference, context, chain[0], chain, next));
+        }
       }
       if (typeof job.uses === "string") {
-        const target = this.target(job.uses, context);
-        if (!target) throw new Error(`invalid reusable workflow reference: ${job.uses}`);
-        if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(target.file)) throw new Error(`unsupported reusable workflow reference: ${job.uses}`);
-        const nested = await this.read(target.context, target.file);
-        if (nested === null) throw new Error(`reusable workflow not found (or not accessible): ${job.uses}`);
-        await this.workflow(nested, target.context, target.file, [...chain, job.uses], next);
+        const reference = job.uses;
+        await this.inspect(chain, reference, async () => {
+          const target = this.target(reference, context);
+          if (!target) throw new Error(`invalid reusable workflow reference: ${reference}`);
+          if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(target.file)) throw new Error(`unsupported reusable workflow reference: ${reference}`);
+          const nested = await this.read(target.context, target.file);
+          if (nested === null) throw new Error(`reusable workflow not found (or not accessible): ${reference}`);
+          await this.workflow(nested, target.context, target.file, [...chain, reference], next);
+        });
       }
     }
   }
