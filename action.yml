@@ -18,4 +18,4 @@ outputs:
     description: Number of action references inspected
 runs:
   using: node24
-  main: dist/index.js
+  main: dist/index.cjs
