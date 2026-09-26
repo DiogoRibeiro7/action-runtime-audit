@@ -1,0 +1,31 @@
+name: Bug report
+description: Report an incorrect or missed runtime finding
+title: "Bug: "
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Include the workflow reference chain and action version if known. Remove tokens and private repository content.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include relevant workflow and action metadata or links to public files.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Audit action version
+      placeholder: Commit SHA or release tag
+    validations:
+      required: true

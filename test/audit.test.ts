@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, test } from 'node:test';
@@ -97,4 +98,53 @@ test('fetches the pinned metadata path', async () => {
   assert.equal(requests[0].hostname, 'api.github.com');
   assert.equal(requests[0].searchParams.get('ref'), 'a'.repeat(40));
   assert.equal(requests[0].pathname, '/repos/acme/action/contents/nested/action.yml');
+});
+
+test('bundled action writes findings and a summary and fails for a blocked local action', async () => {
+  const context = await caller('jobs:\n  ci:\n    steps:\n      - uses: ./legacy\n');
+  await mkdir(path.join(context.root!, 'legacy'));
+  await writeFile(path.join(context.root!, 'legacy/action.yml'), 'runs:\n  using: node20\n  main: dist/index.js\n');
+  const output = path.join(context.root!, 'output.txt');
+  const summary = path.join(context.root!, 'summary.md');
+  const run = spawnSync(process.execPath, [path.resolve('dist/index.cjs')], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GITHUB_REPOSITORY: 'acme/consumer',
+      GITHUB_SHA: 'test-sha',
+      GITHUB_WORKSPACE: context.root!,
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+      'INPUT_GITHUB-TOKEN': 'offline-test-token',
+    },
+  });
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stdout, /::error::\.\/legacy uses node20/);
+  const fields = Object.fromEntries((await readFile(output, 'utf8')).trim().split('\n').map((line) => line.split(/=(.*)/s).slice(0, 2)));
+  assert.equal(fields['checked-actions'], '1');
+  assert.deepEqual(JSON.parse(fields.findings!), [{
+    workflow: '.github/workflows/ci.yml',
+    chain: ['.github/workflows/ci.yml', './legacy'],
+    action: './legacy', runtime: 'node20',
+  }]);
+  assert.match(await readFile(summary, 'utf8'), /Found 1 blocked runtimes and 0 scan errors/);
+});
+
+test('bundled action succeeds and writes empty findings when local runtimes are allowed', async () => {
+  const context = await caller('jobs:\n  ci:\n    steps:\n      - uses: ./\n');
+  await writeFile(path.join(context.root!, 'action.yml'), 'runs:\n  using: node24\n  main: dist/index.cjs\n');
+  const output = path.join(context.root!, 'output.txt');
+  const run = spawnSync(process.execPath, [path.resolve('dist/index.cjs')], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GITHUB_REPOSITORY: 'acme/consumer',
+      GITHUB_SHA: 'test-sha',
+      GITHUB_WORKSPACE: context.root!,
+      GITHUB_OUTPUT: output,
+      'INPUT_GITHUB-TOKEN': 'offline-test-token',
+    },
+  });
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(await readFile(output, 'utf8'), /^findings=\[\]\nchecked-actions=1\n$/);
 });
