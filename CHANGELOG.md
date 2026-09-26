@@ -5,6 +5,8 @@ Changes to the action's public behavior are recorded here. Versions follow
 
 ## Unreleased
 
+## 0.1.1 - 2026-09-26
+
 - Reset the reference traversal limit for each workflow so repositories with
   many independent workflows can be audited.
 
