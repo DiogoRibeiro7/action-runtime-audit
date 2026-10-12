@@ -7558,6 +7558,7 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) await (0, import_promises2.appendFile)(process.env.GITHUB_STEP_SUMMARY, `${summary(result.findings, result.checkedActions, result.errors)}
 `);
   if (process.env.GITHUB_OUTPUT) await (0, import_promises2.appendFile)(process.env.GITHUB_OUTPUT, `findings=${JSON.stringify(result.findings)}
+scan-errors=${JSON.stringify(result.errors)}
 checked-actions=${result.checkedActions}
 `);
   for (const finding of result.findings) console.log(`::error::${escapeCommand(`${finding.action} uses ${finding.runtime} (${finding.workflow})`)}`);

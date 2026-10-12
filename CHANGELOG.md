@@ -5,6 +5,9 @@ Changes to the action's public behavior are recorded here. Versions follow
 
 ## Unreleased
 
+- Expose scan errors as a JSON output so downstream workflows can distinguish
+  unreadable references from blocked runtimes.
+
 ## 0.1.2 - 2026-09-26
 
 - Continue auditing independent references after an unreadable action or

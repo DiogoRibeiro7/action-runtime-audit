@@ -41,10 +41,13 @@ each dependency repository. The caller repository must be checked out first.
 | `github-token` | Input, required | Token with Contents read access to referenced repositories. |
 | `blocked-runtimes` | Input | Comma-separated `runs.using` values; default `node12,node16,node20`. |
 | `findings` | Output | JSON array of `{ workflow, chain, action, runtime }` objects. |
+| `scan-errors` | Output | JSON array of scan error messages; `[]` when all references were inspected. |
 | `checked-actions` | Output | Number of action references inspected. |
 
 The check exits unsuccessfully if it finds a blocked runtime or cannot inspect
 a reference. It also writes a table and any scan errors to the job summary.
+After a scan completes, the JSON outputs are written before the action exits,
+including when findings or scan errors cause the step to fail.
 For example, a finding might have `chain` equal to
 `[".github/workflows/ci.yml", "owner/wrapper@v2", "owner/legacy@v1"]`.
 

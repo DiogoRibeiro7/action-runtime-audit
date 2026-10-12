@@ -175,6 +175,10 @@ test('bundled action reports a blocked runtime after an unreadable local action'
     chain: ['.github/workflows/ci.yml', './legacy'],
     action: './legacy', runtime: 'node20',
   }]);
+  const scanErrors: unknown = JSON.parse(fields['scan-errors']!);
+  assert.ok(Array.isArray(scanErrors) && scanErrors.every((error: unknown) => typeof error === 'string'));
+  assert.equal(scanErrors.length, 1);
+  assert.match(scanErrors[0] as string, /\.\/missing: .*not found/);
   assert.match(await readFile(summary, 'utf8'), /Found 1 blocked runtimes and 1 scan errors/);
 });
 
@@ -194,5 +198,5 @@ test('bundled action succeeds and writes empty findings when local runtimes are 
     },
   });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(await readFile(output, 'utf8'), /^findings=\[\]\nchecked-actions=1\n$/);
+  assert.match(await readFile(output, 'utf8'), /^findings=\[\]\nscan-errors=\[\]\nchecked-actions=1\n$/);
 });

@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const result = await audit.scan();
   console.log(summary(result.findings, result.checkedActions, result.errors));
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary(result.findings, result.checkedActions, result.errors)}\n`);
-  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `findings=${JSON.stringify(result.findings)}\nchecked-actions=${result.checkedActions}\n`);
+  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `findings=${JSON.stringify(result.findings)}\nscan-errors=${JSON.stringify(result.errors)}\nchecked-actions=${result.checkedActions}\n`);
   for (const finding of result.findings) console.log(`::error::${escapeCommand(`${finding.action} uses ${finding.runtime} (${finding.workflow})`)}`);
   for (const error of result.errors) console.log(`::error::${escapeCommand(error)}`);
   if (result.findings.length || result.errors.length) process.exitCode = 1;
